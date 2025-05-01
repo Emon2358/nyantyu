@@ -49,13 +49,10 @@ jobs:
 
       - name: Download nested URLs from extracted files
         run: |
-          # 抽出先ディレクトリに移動
           cd ram_contents
-          # ファイル中の http/https URL をすべて抽出してリスト化
-          grep -rhoE 'https?://[^"'"' ]+' . > nested_urls.txt || true
-          # 重複を排除
+          # URL 抽出：ダブルクォート外側、内部の " はエスケープ
+          grep -rhoE "https?://[^\"' ]+" . > nested_urls.txt || true
           sort -u nested_urls.txt -o nested_urls.txt
-          # URL があれば wget で取得
           if [ -s nested_urls.txt ]; then
             echo "Downloading nested URLs..."
             while IFS= read -r url; do
