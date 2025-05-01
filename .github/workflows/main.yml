@@ -1,5 +1,5 @@
 # .github/workflows/upload-ram-files.yml
-name: Download & Upload RAM Contents
+name: Download & Upload RAM Contents with Nested URLs
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
       - name: Install required tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip tar
+          sudo apt-get install -y unzip tar wget
 
       - name: Download RAM file
         run: |
@@ -43,12 +43,31 @@ jobs:
               tar xvf "$FILENAME" -C ram_contents
               ;;
             *)
-              # 圧縮ファイルでなければそのまま格納
               mv "$FILENAME" ram_contents/
               ;;
           esac
 
-      - name: Copy extracted files into repo
+      - name: Download nested URLs from extracted files
+        run: |
+          # 抽出先ディレクトリに移動
+          cd ram_contents
+          # ファイル中の http/https URL をすべて抽出してリスト化
+          grep -rhoE 'https?://[^"'"' ]+' . > nested_urls.txt || true
+          # 重複を排除
+          sort -u nested_urls.txt -o nested_urls.txt
+          # URL があれば wget で取得
+          if [ -s nested_urls.txt ]; then
+            echo "Downloading nested URLs..."
+            while IFS= read -r url; do
+              echo "  -> $url"
+              wget -nv "$url"
+            done < nested_urls.txt
+          else
+            echo "No nested URLs found."
+          fi
+          cd ..
+
+      - name: Copy all files into repo
         run: |
           cp -r ram_contents/* .
 
@@ -56,5 +75,5 @@ jobs:
         uses: EndBug/add-and-commit@v9
         with:
           default_author: github_actions
-          message: "chore: update RAM file contents from ${{ github.event.inputs.download_url }}"
+          message: "chore: update RAM and nested resources from ${{ github.event.inputs.download_url }}"
           push: true
